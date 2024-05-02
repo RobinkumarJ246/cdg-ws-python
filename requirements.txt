@@ -3,4 +3,4 @@ motor
 fastapi
 pydantic
 typing
-uvicorn
+uvicorn[standard]
