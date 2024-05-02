@@ -1,0 +1,5 @@
+asyncio
+motor
+fastapi
+pydantic
+typing
