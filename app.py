@@ -16,6 +16,7 @@ class Message(BaseModel):
     roomCode: str
     content: Optional[str] = None
     username: str
+    role: str
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -25,11 +26,12 @@ async def websocket_endpoint(websocket: WebSocket):
         message = Message(**data)
         room_code = message.roomCode
         username = message.username
+        role = message.role
 
         # Check if the room document exists, otherwise create it
         room = await db.rooms.find_one({"roomCode": room_code})
         if not room:
-            await db.rooms.insert_one({"roomCode": room_code, "online": [username], "messages": []})
+            await db.rooms.insert_one({"roomCode": room_code, "online": [username], "sender": None, "replier": None, "messages": []})
         else:
             # Update the online field with the new username
             await db.rooms.update_one(
@@ -37,10 +39,22 @@ async def websocket_endpoint(websocket: WebSocket):
                 {"$addToSet": {"online": username}}
             )
 
-        # Send the updated online users list to all connected clients
+            # Update the sender or replier field based on the user's role
+            if role == "Sender":
+                await db.rooms.update_one({"roomCode": room_code}, {"$set": {"sender": username}})
+            elif role == "Replier":
+                await db.rooms.update_one({"roomCode": room_code}, {"$set": {"replier": username}})
+
+        # Retrieve the updated room document
+        room = await db.rooms.find_one({"roomCode": room_code})
+
+        # Send the updated online users, sender, and replier information to all connected clients
         online_users = room.get("online", [])
+        online_count = len(online_users)
+        sender = room.get("sender", None)
+        replier = room.get("replier", None)
         for connection in connections.values():
-            await connection.send_json({"type": "onlineUsers", "onlineUsers": online_users})
+            await connection.send_json({"type": "userInfo", "onlineUsers": online_users, "onlineCount": online_count, "sender": sender, "replier": replier})
 
         while True:
             data = await websocket.receive_json()
@@ -65,9 +79,22 @@ async def websocket_endpoint(websocket: WebSocket):
             {"$pull": {"online": username}}
         )
 
-        # Send the updated online users list to all connected clients
-        online_users = (await db.rooms.find_one({"roomCode": room_code})).get("online", [])
+        # Remove the user from the sender or replier field
+        await db.rooms.update_one(
+            {"roomCode": room_code},
+            {"$set": {"sender": None if role == "Sender" else room.get("sender", None),
+                      "replier": None if role == "Replier" else room.get("replier", None)}}
+        )
+
+        # Retrieve the updated room document
+        room = await db.rooms.find_one({"roomCode": room_code})
+
+        # Send the updated online users, sender, and replier information to all connected clients
+        online_users = room.get("online", [])
+        online_count = len(online_users)
+        sender = room.get("sender", None)
+        replier = room.get("replier", None)
         for connection in connections.values():
-            await connection.send_json({"type": "onlineUsers", "onlineUsers": online_users})
+            await connection.send_json({"type": "userInfo", "onlineUsers": online_users, "onlineCount": online_count, "sender": sender, "replier": replier})
 
         await websocket.close()
