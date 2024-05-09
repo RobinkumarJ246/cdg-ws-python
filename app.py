@@ -60,23 +60,31 @@ async def websocket_endpoint(websocket: WebSocket):
         for connection in connections.values():
             await connection.send_json({"type": "userInfo", "onlineUsers": online_users, "onlineCount": online_count, "sender": sender, "replier": replier})
 
+        # Store the connected WebSocket in the connections dictionary
+        connections[websocket] = websocket
+
         while True:
             data = await websocket.receive_json()
             message = Message(**data)
             content = message.content
+            username = message.username  # Add this line
 
             # Update the messages field with the new message
             if content:
                 await db.rooms.update_one(
                     {"roomCode": room_code},
-                    {"$push": {"messages": content}}
+                    {"$push": {"messages": {"content": content, "username": username}}}  # Modify this line
                 )
 
                 # Send the new message to all connected clients
                 for connection in connections.values():
-                    await connection.send_json({"type": "message", "content": content})
+                    await connection.send_json({"type": "message", "content": content, "username": username})  # Modify this line
 
     except WebSocketDisconnect:
+        # Remove the disconnected WebSocket from the connections dictionary
+        if websocket in connections:
+            del connections[websocket]
+
         # Remove the disconnected user from the online field
         await db.rooms.update_one(
             {"roomCode": room_code},
