@@ -48,6 +48,10 @@ async def websocket_endpoint(websocket: WebSocket):
         # Retrieve the updated room document
         room = await db.rooms.find_one({"roomCode": room_code})
 
+        # Send the existing messages to the client
+        existing_messages = room.get("messages", [])
+        await websocket.send_json({"type": "existingMessages", "messages": existing_messages})
+
         # Send the updated online users, sender, and replier information to all connected clients
         online_users = room.get("online", [])
         online_count = len(online_users)
