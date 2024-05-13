@@ -116,6 +116,13 @@ async def websocket_endpoint(websocket: WebSocket):
 async def ping():
     return {"message": "pong"}
 
+@app.head("/ping_header")
+async def ping_header():
+    """
+    Endpoint to check if the server is up and running.
+    """
+    return {"message": "pong"}
+
 # Periodically ping the server to keep it alive (e.g., every 5 minutes)
 async def periodic_ping():
     while True:
