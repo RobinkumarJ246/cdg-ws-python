@@ -126,7 +126,7 @@ async def ping_header():
 # Periodically ping the server to keep it alive (e.g., every 5 minutes)
 async def periodic_ping():
     while True:
-        await asyncio.sleep(300)  # 300 seconds = 5 minutes
+        await asyncio.sleep(150)  # 150 seconds = 2 minutes and 30 seconds
         await ping()
 
 # Start the periodic ping task
