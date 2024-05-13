@@ -110,3 +110,19 @@ async def websocket_endpoint(websocket: WebSocket):
             await connection.send_json({"type": "userInfo", "onlineUsers": online_users, "onlineCount": online_count, "sender": sender, "replier": replier})
 
         await websocket.close()
+        
+# API endpoint for pinging to keep the server alive
+@app.get("/ping")
+async def ping():
+    return {"message": "pong"}
+
+# Periodically ping the server to keep it alive (e.g., every 5 minutes)
+async def periodic_ping():
+    while True:
+        await asyncio.sleep(300)  # 300 seconds = 5 minutes
+        await ping()
+
+# Start the periodic ping task
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(periodic_ping())
